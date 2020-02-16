@@ -396,12 +396,19 @@ uint8 SPIClass::transfer(uint8 byte) const
 
 uint16_t SPIClass::transfer16(uint16_t wr_data) const
 {
-	spi_dev * spi_d = _currentSetting->spi_d;
-	spi_rx_reg(spi_d); // read any previous data
-	spi_tx_reg(spi_d, wr_data); // "2. Write the first data item to be transmitted into the SPI_DR register (this clears the TXE flag)."
-	while (spi_is_tx_empty(spi_d) == 0); // "5. Wait until TXE=1 ..."
-	while (spi_is_busy(spi_d) != 0); // "... and then wait until BSY=0 before disabling the SPI."
-	return (uint16)spi_rx_reg(spi_d); // "... and read the last received data."
+    // Modified by fa1ke5: read 16 bit data like stm32f1xx
+    // For support SPI data transfers from XPT2046 classic libs
+    spi_dev * spi_d = _currentSetting->spi_d;
+    spi_rx_reg(spi_d);                   // read any previous data
+    spi_tx_reg(spi_d, data>>8);          // write high byte
+    while (spi_is_tx_empty(spi_d) == 0); // wait until TXE=1
+    while (spi_is_busy(spi_d) != 0); // wait until BSY=0
+    uint16_t ret = spi_rx_reg(spi_d)<<8; // read and shift high byte
+    spi_tx_reg(spi_d, data);             // write low byte
+    while (spi_is_tx_empty(spi_d) == 0); // wait until TXE=1
+    while (spi_is_busy(spi_d) != 0); // wait until BSY=0
+    ret += spi_rx_reg(spi_d);            // read low byte
+    return ret;
 }
 
 #ifdef SPI_DMA
